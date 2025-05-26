@@ -1,3 +1,19 @@
+# [Your Research Project Title]
+
+## 📌 Project Origin and License
+
+This project is partially based on code and documentation adapted from [online-dt](https://github.com/facebookresearch/online-dt),  
+which is licensed under the [Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/).
+
+In accordance with the license terms, this project is used solely for non-commercial academic research purposes,  
+and proper attribution to the original work has been maintained.
+
+---
+
+## ✏️ Original README Content (May Be Modified Below):
+
+(The following content is inherited or adapted from the original README and may have been modified.)
+
 # online-dt
 This repository contains the Pytorch implementation of [Online Decision Transformer](https://arxiv.org/abs/2202.05607) by [Qinqing Zheng](https://enosair.github.io/), [Amy Zhang](https://amyzhang.github.io/), and [Aditya Grover](https://aditya-grover.github.io/).
 
