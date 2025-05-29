@@ -141,3 +141,14 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+*.zip
+*.csv
+*.log
+*.pid
+log/
+pid/
+**/trained_models/
+**/results/
+**/sentiment_data/
+

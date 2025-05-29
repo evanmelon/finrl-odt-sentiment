@@ -1,0 +1,110 @@
+import pandas as pd
+NAS_100_TICKER = [
+    "AAL",
+    "AAPL",
+    "ADBE",
+    "ADI",
+    "ADP",
+    "ADSK",
+    "ALGN",
+    "AMAT",
+    "AMD",
+    "AMGN",
+    "AMZN",
+    "ASML",
+    "BIDU",
+    "BIIB",
+    "BKNG",
+    "BMRN",
+    "CDNS",
+    "CHKP",
+    "CMCSA",
+    "COST",
+    "CSCO",
+    "CSX",
+    "CTAS",
+    "CTSH",
+    "DLTR",
+    "EA",
+    "EBAY",
+    "EXPE",
+    "FAST",
+    "GILD",
+    "GOOGL",
+    "HAS",
+    "HSIC",
+    "IDXX",
+    "ILMN",
+    "INCY",
+    "INTC",
+    "INTU",
+    "ISRG",
+    "JBHT",
+    "KLAC",
+    "LBTYK",
+    "LRCX",
+    "LULU",
+    "MAR",
+    "MCHP",
+    "MDLZ",
+    "MELI",
+    "MNST",
+    "MSFT",
+    "MU",
+    "NFLX",
+    "NTAP",
+    "NTES",
+    "NVDA",
+    "ORLY",
+    "PAYX",
+    "PCAR",
+    "PEP",
+    "QCOM",
+    "REGN",
+    "ROST",
+    "SBUX",
+    "SIRI",
+    "SNPS",
+    "SWKS",
+    "TCOM",
+    "TMUS",
+    "TTWO",
+    "TXN",
+    "UAL",
+    "ULTA",
+    "VRSN",
+    "VRTX",
+    "WBA",
+    "WDC",
+    "WYNN",
+    "XEL"
+]
+
+# 讀入原始資料
+df = pd.read_csv("../sentiment_data/inNAS100_analyst_ratings_precessed_with_full_scores.csv", parse_dates=["date"])
+
+# 處理股票欄位為多個 ticker
+df["stock"] = df["stock"].astype(str)
+df["stock_list"] = df["stock"].str.split(",")
+df = df.explode("stock_list")
+df["stock_list"] = df["stock_list"].str.strip().str.replace('"', '')
+
+# 將每筆的三個分數組合成一個 list
+df["score_triplet"] = df.apply(lambda row: [
+    row["score_positive"],
+    row["score_negative"],
+    row["score_neutral"]
+], axis=1)
+
+# 建立每日 sentiment_score 欄位：dict[ticker] = [p, n, neu]，無資料補 [-1, -1, -1]
+def build_daily_sentiment(group):
+    score_dict = {ticker: [-1, -1, -1] for ticker in NAS_100_TICKER}
+    for _, row in group.iterrows():
+        if row["stock_list"] in NAS_100_TICKER:
+            score_dict[row["stock_list"]] = row["score_triplet"]
+    return pd.Series({"sentiment_score": score_dict})
+
+grouped = df.groupby("date").apply(build_daily_sentiment).reset_index()
+
+# 儲存為 .pkl 檔
+grouped.to_pickle("../sentiment_data/daily_sentiment_dict.pkl")
