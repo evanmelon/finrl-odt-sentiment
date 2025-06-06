@@ -55,7 +55,6 @@ env_kwargs = {
     "reward_scaling": 1e-4
 }
 
-print(f"trade: {trade}")
 e_trade_gym = StockTradingEnv(df = trade, turbulence_threshold = 70,risk_indicator_col='vix', **env_kwargs)
 # env_trade, obs_trade = e_trade_gym.get_sb_env()
 
@@ -143,21 +142,24 @@ TRAIN_END_DATE = '2020-07-01'
 TRADE_START_DATE = '2020-07-01'
 TRADE_END_DATE = '2024-10-29'
 
-df_dji = YahooDownloader(
-    start_date=TRADE_START_DATE, end_date=TRADE_END_DATE, ticker_list=["dji"]
+# df_dji = YahooDownloader(
+#     start_date=TRADE_START_DATE, end_date=TRADE_END_DATE, ticker_list=["dji"]
+# ).fetch_data()
+df_ndx = YahooDownloader(
+    start_date=TRADE_START_DATE, end_date=TRADE_END_DATE, ticker_list=["^NDX"]
 ).fetch_data()
 
-df_dji = df_dji[["date", "close"]]
-fst_day = df_dji["close"][0]
-dji = pd.merge(
-    df_dji["date"],
-    df_dji["close"].div(fst_day).mul(1000000),
+df_ndx = df_ndx[["date", "close"]]
+fst_day = df_ndx["close"][0]
+ndx = pd.merge(
+    df_ndx["date"],
+    df_ndx["close"].div(fst_day).mul(1000000),
     how="outer",
     left_index=True,
     right_index=True,
 ).set_index("date")
 
-print(f"dji: {dji}")
+print(f"ndx: {ndx}")
 
 df_result_a2c = (
     df_account_value_a2c.set_index(df_account_value_a2c.columns[0])
@@ -195,7 +197,7 @@ result = pd.DataFrame(
         "td3": df_result_td3["account_value"] if if_using_td3 else None,
         "sac": df_result_sac["account_value"] if if_using_sac else None,
         "mvo": MVO_result["Mean Var"],
-        "dji": dji["close"],
+        "ndx": ndx["close"],
     }
 )
 
