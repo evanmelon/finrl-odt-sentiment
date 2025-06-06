@@ -297,7 +297,9 @@ class StockTradingEnv(gym.Env):
             # logger.record("environment/total_cost", self.cost)
             # logger.record("environment/total_trades", self.trades)
 
-            return self.state, self.reward, self.terminal, False, {}
+            current_datetime = self._get_date()
+            info = {"datetime": current_datetime}
+            return self.state, self.reward, self.terminal, False, info
 
         else:
             actions = actions * self.hmax  # actions initially is scaled between 0 to 1
@@ -353,7 +355,9 @@ class StockTradingEnv(gym.Env):
                 self.state
             )  # add current state in state_recorder for each step
 
-        return self.state, self.reward, self.terminal, False, {}
+            current_datetime = self._get_date()
+            info = {"datetime": current_datetime}
+        return self.state, self.reward, self.terminal, False, info
 
     def reset(
         self,

@@ -7,7 +7,7 @@ from stable_baselines3 import A2C, DDPG, PPO, SAC, TD3
 
 sys.path.append(os.path.abspath(".."))
 
-from finrl_DRLAgent import DRLAgent
+from finrl.agents.stablebaselines3.models import DRLAgent
 from finrl.config import INDICATORS, TRAINED_MODEL_DIR
 from finrl.meta.env_stock_trading.env_stocktrading import StockTradingEnv
 from finrl.meta.preprocessor.yahoodownloader import YahooDownloader
@@ -80,10 +80,10 @@ df_account_value_sac, df_actions_sac, trajectories_sac = DRLAgent.DRL_prediction
     environment = e_trade_gym, deterministic=False) if if_using_sac else (None, None)
 
 df = pd.DataFrame(trajectories_sac)
-df.to_pickle("trajectories_sac.pkl")
+df.to_pickle("../data/trajectories_sac.pkl")
 
 df = pd.DataFrame(trajectories_ppo)
-df.to_pickle("trajectories_ppo.pkl")
+df.to_pickle("../data/trajectories_ppo.pkl")
 
 def process_df_for_mvo(df):
     return df.pivot(index="date", columns="tic", values="close")
