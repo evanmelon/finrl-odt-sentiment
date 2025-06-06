@@ -140,7 +140,7 @@ print(MVO_result)
 TRAIN_START_DATE = '2009-01-01'
 TRAIN_END_DATE = '2020-07-01'
 TRADE_START_DATE = '2020-07-01'
-TRADE_END_DATE = '2024-10-29'
+TRADE_END_DATE = '2021-10-29'
 
 # df_dji = YahooDownloader(
 #     start_date=TRADE_START_DATE, end_date=TRADE_END_DATE, ticker_list=["dji"]
