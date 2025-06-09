@@ -3,6 +3,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import pickle
 from stable_baselines3 import A2C, DDPG, PPO, SAC, TD3
 
 sys.path.append(os.path.abspath(".."))
@@ -55,6 +56,7 @@ env_kwargs = {
     "reward_scaling": 1e-4
 }
 
+
 e_trade_gym = StockTradingEnv(df = trade, turbulence_threshold = 70,risk_indicator_col='vix', **env_kwargs)
 # env_trade, obs_trade = e_trade_gym.get_sb_env()
 
@@ -78,11 +80,29 @@ df_account_value_sac, df_actions_sac, trajectories_sac = DRLAgent.DRL_prediction
     model=trained_sac, 
     environment = e_trade_gym, deterministic=False) if if_using_sac else (None, None)
 
-df = pd.DataFrame(trajectories_sac)
-df.to_pickle("../data/trajectories_sac.pkl")
+# df = pd.DataFrame(trajectories_sac)
+# df.to_pickle("../data/trajectories_sac.pkl")
+#
+# df = pd.DataFrame(trajectories_ppo)
+# df.to_pickle("../data/trajectories_ppo.pkl")
 
-df = pd.DataFrame(trajectories_ppo)
-df.to_pickle("../data/trajectories_ppo.pkl")
+print(type(trajectories_sac))
+print(list(trajectories_sac.keys()))
+
+
+trajectories_sac = [{
+    k: np.array(v).reshape(-1) if k in ["dones", "terminals"] else np.array(v)
+    for k, v in trajectories_sac.items()
+}]
+with open("../data/trajectories_sac-v0.pkl", "wb") as f:
+    pickle.dump(trajectories_sac, f)
+
+trajectories_ppo = [{
+    k: np.array(v).reshape(-1) if k in ["dones", "terminals"] else np.array(v)
+    for k, v in trajectories_ppo.items()
+}]
+with open("../data/trajectories_ppo-v0.pkl", "wb") as f:
+    pickle.dump(trajectories_ppo, f)
 
 def process_df_for_mvo(df):
     return df.pivot(index="date", columns="tic", values="close")

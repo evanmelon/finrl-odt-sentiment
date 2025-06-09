@@ -5,15 +5,19 @@ This source code is licensed under the CC BY-NC license found in the
 LICENSE.md file in the root directory of this source tree.
 """
 
+from gymnasium.envs.registration import register
+
 from torch.utils.tensorboard import SummaryWriter
 import argparse
 import pickle
 import random
 import time
-import gym
-import d4rl
+# import gym
+import gymnasium as gym
+# import d4rl
 import torch
 import numpy as np
+import pandas as pd
 
 import utils
 from replay_buffer import ReplayBuffer
@@ -26,7 +30,49 @@ from evaluation import create_vec_eval_episodes_fn, vec_evaluate_episode_rtg
 from trainer import SequenceTrainer
 from logger import Logger
 
+from finrl.meta.env_stock_trading.env_stocktrading import StockTradingEnv
+from finrl.config import INDICATORS
+
 MAX_EPISODE_LEN = 1000
+
+
+train = pd.read_csv('./evan/train_data.csv')
+train = train.set_index(train.columns[0])
+train.index.names = ['']
+stock_dimension = len(train.tic.unique())
+state_space = 1 + 2 * stock_dimension + len(INDICATORS) * stock_dimension
+print(f"Stock Dimension: {stock_dimension}, State Space: {state_space}")
+
+buy_cost_list = sell_cost_list = [0.001] * stock_dimension
+num_stock_shares = [0] * stock_dimension
+env_kwargs = {
+    "hmax": 100,
+    "initial_amount": 1000000,
+    "num_stock_shares": num_stock_shares,
+    "buy_cost_pct": buy_cost_list,
+    "sell_cost_pct": sell_cost_list,
+    "state_space": state_space,
+    "stock_dim": stock_dimension,
+    "tech_indicator_list": INDICATORS,
+    "action_space": stock_dimension,
+    "reward_scaling": 1e-4
+}
+
+# 定義工廠函數
+def make_stock_trading_env(**kwargs):
+    return StockTradingEnv(
+        df=train,
+        turbulence_threshold=70,
+        risk_indicator_col='vix',
+        **env_kwargs,
+        **kwargs,  # 支援 gym.make 傳進來的額外參數
+    )
+
+# 註冊環境
+register(
+    id='trajectories_sac-v0',
+    entry_point=make_stock_trading_env,
+)
 
 
 class Experiment:
@@ -387,38 +433,53 @@ class Experiment:
 
         utils.set_seed_everywhere(args.seed)
 
-        import d4rl
+        # import d4rl
 
         def loss_fn(
             a_hat_dist,
             a,
             attention_mask,
             entropy_reg,
+            sentiments,
+            sentiment_weight=0.1,
         ):
             # a_hat is a SquashedNormal Distribution
-            log_likelihood = a_hat_dist.log_likelihood(a)[attention_mask > 0].mean()
-
+            log_likelihood = a_hat_dist.log_likelihood(a)  # shape: (B, T)
             entropy = a_hat_dist.entropy().mean()
-            loss = -(log_likelihood + entropy_reg * entropy)
 
-            return (
-                loss,
-                -log_likelihood,
-                entropy,
-            )
+            # 將 [pos, neg, neu] 壓成 scalar，加權情緒評分
+            # sentiments: shape (B, T, tick, 3)
+            weights = torch.tensor([1.0, -1.0, 0.0], dtype=sentiments.dtype, device=sentiments.device)  # shape: (3,)
+            sentiment_score_per_tick = torch.sum(sentiments * weights, dim=-1)  # shape: (B, T, tick)
+            sentiment_score = sentiment_score_per_tick.mean(dim=-1)  # shape: (B, T)
+            sentiment_score = sentiment_score.to(log_likelihood.device)
+
+
+            # 產生 mask，過濾掉 padding
+            sentiment_mask = attention_mask > 0
+
+            # 損失項：鼓勵在正向情緒高時，行動機率高（log_prob 大）
+            sentiment_loss = -(log_likelihood * sentiment_score)[sentiment_mask].mean()
+
+            # 原始 loss: log_likelihood + entropy 正則
+            ll_term = log_likelihood[sentiment_mask].mean()
+            loss = -(ll_term + entropy_reg * entropy) + sentiment_weight * sentiment_loss
+
+            return loss, -ll_term, entropy
 
         def get_env_builder(seed, env_name, target_goal=None):
             def make_env_fn():
-                import d4rl
+                # import d4rl
 
                 env = gym.make(env_name)
-                env.seed(seed)
-                if hasattr(env.env, "wrapped_env"):
-                    env.env.wrapped_env.seed(seed)
-                elif hasattr(env.env, "seed"):
-                    env.env.seed(seed)
-                else:
-                    pass
+                # env.seed(seed)
+                # if hasattr(env.env, "wrapped_env"):
+                #     env.env.wrapped_env.seed(seed)
+                # elif hasattr(env.env, "seed"):
+                #     env.env.seed(seed)
+                # else:
+                #     pass
+                env.reset(seed=seed)
                 env.action_space.seed(seed)
                 env.observation_space.seed(seed)
 

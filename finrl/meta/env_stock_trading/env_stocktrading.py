@@ -365,6 +365,9 @@ class StockTradingEnv(gym.Env):
         seed=None,
         options=None,
     ):
+        if seed is not None:
+            self.np_random, _ = gym.utils.seeding.np_random(seed)
+
         # initiate state
         self.day = 0
         self.data = self.df.loc[self.day, :]
@@ -398,7 +401,8 @@ class StockTradingEnv(gym.Env):
 
         self.episode += 1
 
-        return self.state, {}
+        # return self.state, {}
+        return np.array(self.state, dtype=np.float32), {}
 
     def render(self, mode="human", close=False):
         return self.state
@@ -552,6 +556,10 @@ class StockTradingEnv(gym.Env):
 
     def _seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
+        return [seed]
+
+    def seed(self, seed=None):
+        self.np_random, seed = gym.utils.seeding.np_random(seed)
         return [seed]
 
     def get_sb_env(self):

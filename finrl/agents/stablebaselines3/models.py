@@ -144,10 +144,10 @@ class DRLAgent:
         trajectories = {}
         trajectories["observations"] = []
         trajectories["next_observations"] = []
-        trajectories["action"] = []
+        trajectories["actions"] = []
         trajectories["rewards"] = []
         trajectories["dones"] = []
-        trajectories["sentiment"] = []
+        trajectories["sentiments"] = []
 
         for i in range(len(environment.df.index.unique())):
             action, _states = model.predict(test_obs, deterministic=deterministic)
@@ -156,13 +156,17 @@ class DRLAgent:
             trajectories["observations"].append(np.array(test_obs).flatten().tolist())
             test_obs, rewards, dones, info = test_env.step(action)
             trajectories["next_observations"].append(np.array(test_obs).flatten().tolist())
-            trajectories["action"].append(np.array(action).flatten().tolist())
+            trajectories["actions"].append(np.array(action).flatten().tolist())
             trajectories["rewards"].append(np.array(rewards).flatten().tolist())
             trajectories["dones"].append(np.array(dones).flatten().tolist())
 
             current_date = pd.to_datetime(info[0]["datetime"]).strftime('%Y-%m-%d')
-            sentiment = sentiment_lookup.get(current_date, [-1] * 3)
-            trajectories["sentiment"].append(sentiment)
+            sentiment = sentiment_lookup.get(
+                current_date,
+                np.full((environment.stock_dim, 3), -1.0)  # fallback: (state_dim, 3)
+            )
+            trajectories["sentiments"].append(sentiment.tolist())
+
 
             if (
                 i == max_steps - 1

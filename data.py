@@ -80,6 +80,8 @@ class TransformSamplingSubTraj:
         else:
             dd = traj["dones"][si : si + self.max_len]  # .reshape(-1)
 
+        se = traj["sentiments"][si : si + self.max_len]
+
         # get the total length of a trajectory
         tlen = ss.shape[0]
 
@@ -113,7 +115,22 @@ class TransformSamplingSubTraj:
         timesteps = np.concatenate([np.zeros((self.max_len - tlen)), timesteps])
         ordering = np.concatenate([np.zeros((self.max_len - tlen)), ordering])
         padding_mask = np.concatenate([np.zeros(self.max_len - tlen), np.ones(tlen)])
+        
+        # for i, item in enumerate(se):
+        #     print(f"se[{i}].shape: {item.shape}")
+        # # sentiment padding
+        # se = np.concatenate([
+        #     np.zeros((self.max_len - tlen, self.state_dim, 3)),  # padding
+        #     se
+        # ])
 
+        # padding for sentiment
+        if len(se.shape) == 3:
+            padding_shape = (self.max_len - tlen,) + se.shape[1:]  # e.g., (padding_len, 78, 3)
+        else:
+            raise ValueError(f"Unexpected sentiment shape: {se.shape}")
+
+        se = np.concatenate([np.zeros(padding_shape), se], axis=0)
         ss = torch.from_numpy(ss).to(dtype=torch.float32)
         aa = torch.from_numpy(aa).to(dtype=torch.float32).clamp(*self.action_range)
         rr = torch.from_numpy(rr).to(dtype=torch.float32)
@@ -123,7 +140,10 @@ class TransformSamplingSubTraj:
         ordering = torch.from_numpy(ordering).to(dtype=torch.long)
         padding_mask = torch.from_numpy(padding_mask)
 
-        return ss, aa, rr, dd, rtg, timesteps, ordering, padding_mask
+        se = torch.from_numpy(se).to(dtype=torch.float32)
+
+
+        return ss, aa, rr, dd, rtg, timesteps, ordering, padding_mask, se
 
 
 def create_dataloader(

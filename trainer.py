@@ -62,6 +62,7 @@ class SequenceTrainer:
             timesteps,
             ordering,
             padding_mask,
+            sentiments,
         ) = trajs
 
         states = states.to(self.device)
@@ -90,6 +91,7 @@ class SequenceTrainer:
             action_target,
             padding_mask,
             self.model.temperature().detach(),  # no gradient taken here
+            sentiments,
         )
         self.optimizer.zero_grad()
         loss.backward()

@@ -148,6 +148,7 @@ cython_debug/
 *.pid
 log/
 pid/
+exp/
 **/trained_models/
 **/results/
 **/sentiment_data/
