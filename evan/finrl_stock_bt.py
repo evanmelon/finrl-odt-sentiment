@@ -30,9 +30,9 @@ if_using_ppo = True
 if_using_td3 = True
 if_using_sac = True
 
-trained_a2c = A2C.load(TRAINED_MODEL_DIR + "/agent_a2c") if if_using_a2c else None
+trained_a2c = A2C.load(TRAINED_MODEL_DIR + "/agent_a2c", device='cpu') if if_using_a2c else None
 trained_ddpg = DDPG.load(TRAINED_MODEL_DIR + "/agent_ddpg") if if_using_ddpg else None
-trained_ppo = PPO.load(TRAINED_MODEL_DIR + "/agent_ppo") if if_using_ppo else None
+trained_ppo = PPO.load(TRAINED_MODEL_DIR + "/agent_ppo", device='cpu') if if_using_ppo else None
 trained_td3 = TD3.load(TRAINED_MODEL_DIR + "/agent_td3") if if_using_td3 else None
 trained_sac = SAC.load(TRAINED_MODEL_DIR + "/agent_sac") if if_using_sac else None
 
@@ -57,7 +57,7 @@ env_kwargs = {
 }
 
 
-e_trade_gym = StockTradingEnv(df = trade, turbulence_threshold = 70,risk_indicator_col='vix', **env_kwargs)
+e_trade_gym = StockTradingEnv(df = train, turbulence_threshold = 70,risk_indicator_col='vix', **env_kwargs)
 # env_trade, obs_trade = e_trade_gym.get_sb_env()
 
 df_account_value_a2c, df_actions_a2c, trajectories_a2c = DRLAgent.DRL_prediction(
@@ -81,27 +81,30 @@ df_account_value_sac, df_actions_sac, trajectories_sac = DRLAgent.DRL_prediction
     environment = e_trade_gym, deterministic=False) if if_using_sac else (None, None)
 
 # df = pd.DataFrame(trajectories_sac)
-# df.to_pickle("../data/trajectories_sac.pkl")
+# df.to_pickle("../data/trajectories_train_sac.pkl")
 #
 # df = pd.DataFrame(trajectories_ppo)
-# df.to_pickle("../data/trajectories_ppo.pkl")
+# df.to_pickle("../data/trajectories_train_ppo.pkl")
 
 print(type(trajectories_sac))
 print(list(trajectories_sac.keys()))
 
+#########
+# 儲存trajectories的地方
+#########
 
 trajectories_sac = [{
     k: np.array(v).reshape(-1) if k in ["dones", "terminals"] else np.array(v)
     for k, v in trajectories_sac.items()
 }]
-with open("../data/trajectories_sac-v0.pkl", "wb") as f:
+with open("../data/trajectories_train_sac-v0.pkl", "wb") as f:
     pickle.dump(trajectories_sac, f)
 
 trajectories_ppo = [{
     k: np.array(v).reshape(-1) if k in ["dones", "terminals"] else np.array(v)
     for k, v in trajectories_ppo.items()
 }]
-with open("../data/trajectories_ppo-v0.pkl", "wb") as f:
+with open("../data/trajectories_train_ppo-v0.pkl", "wb") as f:
     pickle.dump(trajectories_ppo, f)
 
 def process_df_for_mvo(df):
@@ -211,10 +214,10 @@ df_result_sac = (
 df_account_value_a2c.to_csv("a2c_account_value.csv")
 result = pd.DataFrame(
     {
-        "a2c": df_result_a2c["account_value"] if if_using_a2c else None,
-        "ddpg": df_result_ddpg["account_value"] if if_using_ddpg else None,
-        "ppo": df_result_ppo["account_value"] if if_using_ppo else None,
-        "td3": df_result_td3["account_value"] if if_using_td3 else None,
+        # "a2c": df_result_a2c["account_value"] if if_using_a2c else None,
+        # "ddpg": df_result_ddpg["account_value"] if if_using_ddpg else None,
+        # "ppo": df_result_ppo["account_value"] if if_using_ppo else None,
+        # "td3": df_result_td3["account_value"] if if_using_td3 else None,
         "sac": df_result_sac["account_value"] if if_using_sac else None,
         "mvo": MVO_result["Mean Var"],
         "ndx": ndx["close"],

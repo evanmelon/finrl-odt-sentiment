@@ -218,6 +218,8 @@ class StockTradingEnv(gym.Env):
         plt.close()
 
     def step(self, actions):
+        print(f"[STEP] day={self.day}, asset={self.asset_memory[-1]}")
+
         self.terminal = self.day >= len(self.df.index.unique()) - 1
         if self.terminal:
             # print(f"Episode: {self.episode}")
@@ -298,7 +300,10 @@ class StockTradingEnv(gym.Env):
             # logger.record("environment/total_trades", self.trades)
 
             current_datetime = self._get_date()
-            info = {"datetime": current_datetime}
+            info = {
+                "datetime": current_datetime,
+                "asset_memory": self.asset_memory.copy(),
+            }
             return self.state, self.reward, self.terminal, False, info
 
         else:
@@ -356,7 +361,10 @@ class StockTradingEnv(gym.Env):
             )  # add current state in state_recorder for each step
 
             current_datetime = self._get_date()
-            info = {"datetime": current_datetime}
+            info = {
+                "datetime": current_datetime,
+                "asset_memory": self.asset_memory.copy(),
+            }
         return self.state, self.reward, self.terminal, False, info
 
     def reset(
@@ -402,6 +410,8 @@ class StockTradingEnv(gym.Env):
         self.episode += 1
 
         # return self.state, {}
+        print(f"[reset] stock_dim={self.stock_dim}, df_len={len(self.df)}, day={self.day}")
+
         return np.array(self.state, dtype=np.float32), {}
 
     def render(self, mode="human", close=False):

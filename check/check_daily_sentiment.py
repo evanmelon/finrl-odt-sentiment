@@ -20,3 +20,4 @@ with open('../sentiment_data/daily_sentiment_list.pkl', 'rb') as f:
 # print(data)
 print(data.iloc[1].values[0])
 print(data.iloc[1].values[1])
+print(data)

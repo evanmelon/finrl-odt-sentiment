@@ -124,15 +124,6 @@ class DRLAgent:
 
     @staticmethod
     def DRL_prediction(model, environment, deterministic=True):
-        # 載入資料
-        with open('../sentiment_data/daily_sentiment_list.pkl', 'rb') as f:
-            data = pickle.load(f)
-
-        sentiment_lookup = {
-            pd.to_datetime(row[0]).strftime('%Y-%m-%d'): row[1]
-            for row in data.values
-        }
-
         """make a prediction and get results"""
         test_env, test_obs = environment.get_sb_env()
         account_memory = None  # This help avoid unnecessary list creation
@@ -147,7 +138,6 @@ class DRLAgent:
         trajectories["actions"] = []
         trajectories["rewards"] = []
         trajectories["dones"] = []
-        trajectories["sentiments"] = []
 
         for i in range(len(environment.df.index.unique())):
             action, _states = model.predict(test_obs, deterministic=deterministic)
@@ -159,17 +149,6 @@ class DRLAgent:
             trajectories["actions"].append(np.array(action).flatten().tolist())
             trajectories["rewards"].append(np.array(rewards).flatten().tolist())
             trajectories["dones"].append(np.array(dones).flatten().tolist())
-
-            current_date = pd.to_datetime(info[0]["datetime"]).strftime('%Y-%m-%d')
-            sentiment = sentiment_lookup.get(
-                current_date,
-                np.full((environment.stock_dim, 3), -1.0)  # fallback: (state_dim, 3)
-            )
-            # trajectories["sentiments"].append(sentiment.tolist())
-            if isinstance(sentiment, np.ndarray):
-                trajectories["sentiments"].append(sentiment.tolist())
-            else:
-                trajectories["sentiments"].append(sentiment)
 
 
             if (
