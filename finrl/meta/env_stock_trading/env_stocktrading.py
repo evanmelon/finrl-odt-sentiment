@@ -218,7 +218,7 @@ class StockTradingEnv(gym.Env):
         plt.close()
 
     def step(self, actions):
-        print(f"[STEP] day={self.day}, asset={self.asset_memory[-1]}")
+        # print(f"[STEP] day={self.day}, asset={self.asset_memory[-1]}")
 
         self.terminal = self.day >= len(self.df.index.unique()) - 1
         if self.terminal:
@@ -410,7 +410,7 @@ class StockTradingEnv(gym.Env):
         self.episode += 1
 
         # return self.state, {}
-        print(f"[reset] stock_dim={self.stock_dim}, df_len={len(self.df)}, day={self.day}")
+        # print(f"[reset] stock_dim={self.stock_dim}, df_len={len(self.df)}, day={self.day}")
 
         return np.array(self.state, dtype=np.float32), {}
 

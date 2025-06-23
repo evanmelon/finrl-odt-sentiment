@@ -134,6 +134,7 @@ class DecisionTransformer(TrajectoryModel):
         self,
         state_dim,
         act_dim,
+        stock_dim,
         hidden_size,
         action_range,
         ordering=0,
@@ -189,6 +190,9 @@ class DecisionTransformer(TrajectoryModel):
             self.log_temperature.requires_grad = True
             self.target_entropy = target_entropy
 
+        self.use_sentiment = True
+        self.embed_sentiment = torch.nn.Linear(stock_dim * 3, hidden_size)
+
     def temperature(self):
         if self.stochastic_policy:
             return self.log_temperature.exp()
@@ -203,6 +207,7 @@ class DecisionTransformer(TrajectoryModel):
         returns_to_go,
         timesteps,
         ordering,
+        sentiments=None,
         padding_mask=None,
     ):
 
@@ -226,22 +231,27 @@ class DecisionTransformer(TrajectoryModel):
         action_embeddings = action_embeddings + order_embeddings
         returns_embeddings = returns_embeddings + order_embeddings
 
+        # sentiment_embeddings
+        sentiment_flat = sentiments.view(batch_size, seq_length, 78 * 3)  # → (B, T, 234)
+        sentiment_embeddings = self.embed_sentiment(sentiment_flat)     # → (B, T, D)
+        sentiment_embeddings = sentiment_embeddings + order_embeddings
+
         # this makes the sequence look like (R_1, s_1, a_1, R_2, s_2, a_2, ...)
         # which works nice in an autoregressive sense since states predict actions
         stacked_inputs = (
             torch.stack(
-                (returns_embeddings, state_embeddings, action_embeddings), dim=1
+                (returns_embeddings, state_embeddings, action_embeddings, sentiment_embeddings), dim=1
             )
             .permute(0, 2, 1, 3)
-            .reshape(batch_size, 3 * seq_length, self.hidden_size)
+            .reshape(batch_size, 4 * seq_length, self.hidden_size)
         )
         stacked_inputs = self.embed_ln(stacked_inputs)
 
         # to make the attention mask fit the stacked inputs, have to stack it as well
         stacked_padding_mask = (
-            torch.stack((padding_mask, padding_mask, padding_mask), dim=1)
+            torch.stack((padding_mask, padding_mask, padding_mask, padding_mask), dim=1)
             .permute(0, 2, 1)
-            .reshape(batch_size, 3 * seq_length)
+            .reshape(batch_size, 4 * seq_length)
         )
 
         # we feed in the input embeddings (not word indices as in NLP) to the model
@@ -253,7 +263,7 @@ class DecisionTransformer(TrajectoryModel):
 
         # reshape x so that the second dimension corresponds to the original
         # returns (0), states (1), or actions (2); i.e. x[:,1,t] is the token for s_t
-        x = x.reshape(batch_size, seq_length, 3, self.hidden_size).permute(0, 2, 1, 3)
+        x = x.reshape(batch_size, seq_length, 4, self.hidden_size).permute(0, 2, 1, 3)
 
         # get predictions
         # predict next return given state and action
@@ -266,7 +276,7 @@ class DecisionTransformer(TrajectoryModel):
         return state_preds, action_preds, return_preds
 
     def get_predictions(
-        self, states, actions, rewards, returns_to_go, timesteps, num_envs=1, **kwargs
+        self, states, actions, rewards, returns_to_go, timesteps, num_envs=1, sentiments=None, **kwargs
     ):
         # we don't care about the past rewards in this model
         # tensor shape: batch_size, seq_length, variable_dim
@@ -284,6 +294,8 @@ class DecisionTransformer(TrajectoryModel):
             actions = actions[:, -self.eval_context_length :]
             returns_to_go = returns_to_go[:, -self.eval_context_length :]
             timesteps = timesteps[:, -self.eval_context_length :]
+            sentiments = sentiments[:, -self.eval_context_length :]
+
 
             ordering = torch.tile(
                 torch.arange(timesteps.shape[1], device=states.device),
@@ -365,6 +377,18 @@ class DecisionTransformer(TrajectoryModel):
                 ],
                 dim=1,
             ).to(dtype=torch.long)
+
+            sentiments = torch.cat(
+                [
+                    torch.full(
+                        (sentiments.shape[0], self.max_length - sentiments.shape[1], sentiments.shape[2]),
+                        fill_value=-1.0,
+                        device=sentiments.device,
+                    ),
+                    sentiments,
+                ],
+                dim=1,
+            ).to(dtype=torch.float32)
         else:
             padding_mask = None
 
@@ -376,6 +400,7 @@ class DecisionTransformer(TrajectoryModel):
             timesteps,
             ordering,
             padding_mask=padding_mask,
+            sentiments=sentiments,
             **kwargs
         )
         if self.stochastic_policy:

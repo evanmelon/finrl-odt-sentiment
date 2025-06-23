@@ -110,7 +110,7 @@ register(
 class Experiment:
     def __init__(self, variant):
 
-        self.state_dim, self.act_dim, self.action_range = self._get_env_spec(variant)
+        self.state_dim, self.act_dim, self.action_range, self.stock_dim = self._get_env_spec(variant)
         self.offline_trajs, self.state_mean, self.state_std = self._load_dataset(
             variant["env"]
         )
@@ -124,6 +124,7 @@ class Experiment:
         self.model = DecisionTransformer(
             state_dim=self.state_dim,
             act_dim=self.act_dim,
+            stock_dim=self.stock_dim,
             action_range=self.action_range,
             max_length=variant["K"],
             eval_context_length=variant["eval_context_length"],
@@ -178,6 +179,7 @@ class Experiment:
 
     def _get_env_spec(self, variant):
         env = gym.make(variant["env"])
+        stock_dim = env.unwrapped.stock_dim
         state_dim = env.observation_space.shape[0]
         act_dim = env.action_space.shape[0]
         action_range = [
@@ -185,7 +187,7 @@ class Experiment:
             float(env.action_space.high.max()) - 1e-6,
         ]
         env.close()
-        return state_dim, act_dim, action_range
+        return state_dim, act_dim, action_range, stock_dim
 
     def _save_model(self, path_prefix, is_pretrain_model=False):
         to_save = {
@@ -348,6 +350,7 @@ class Experiment:
                 device=self.device,
                 use_mean=True,
                 reward_scale=self.reward_scale,
+                sentiment_lookup=self.sentiment_lookup,
             )
         ]
 
@@ -484,6 +487,7 @@ class Experiment:
                 device=self.device,
                 use_mean=True,
                 reward_scale=self.reward_scale,
+                sentiment_lookup=self.sentiment_lookup,
             )
         ]
         writer = (
@@ -650,7 +654,7 @@ class Experiment:
             print(f"Generated the fixed target goal: {target_goal}")
         else:
             target_goal = None
-        eval_envs = DummyVecEnv(
+        eval_envs = SubprocVecEnv(
             [
                 get_env_builder(i, env_name="StockTradingTest-v0", target_goal=target_goal)
                 for i in range(self.variant["num_eval_episodes"])

@@ -22,6 +22,7 @@ def create_vec_eval_episodes_fn(
     device,
     use_mean=False,
     reward_scale=0.001,
+    sentiment_lookup=None,
 ):
     def eval_episodes_fn(model):
         target_return = [eval_rtg * reward_scale] * vec_env.num_envs
@@ -39,11 +40,12 @@ def create_vec_eval_episodes_fn(
             device=device,
             use_mean=use_mean,
             collect_asset_memory=True,
+            sentiment_lookup=sentiment_lookup,
         )
-        #  加入 debug log
-        print(f"[DEBUG] vec_env type: {type(vec_env)}")
-        print(f"[DEBUG] env.envs[0] type: {type(vec_env.envs[0])}")
-        print(f"[DEBUG] asset_memory lens: {[len(mem) for mem in env_asset_memory]}")
+        #  #  加入 debug log
+        #  print(f"[DEBUG] vec_env type: {type(vec_env)}")
+        #  print(f"[DEBUG] env.envs[0] type: {type(vec_env.envs[0])}")
+        #  print(f"[DEBUG] asset_memory lens: {[len(mem) for mem in env_asset_memory]}")
         suffix = "_gm" if use_mean else ""
         return {
             f"evaluation/return_mean{suffix}": np.mean(returns),
@@ -84,6 +86,25 @@ def vec_evaluate_episode_rtg(
 
     num_envs = vec_env.num_envs
     state = vec_env.reset()
+    # current_dates = vec_env.get_attr("date_memory")[0][-1]
+    # # print(f"current date: {current_dates}")
+    # sentiment = sentiment_lookup.get(current_dates, np.full((vec_env.get_attr("stock_dim")[0], 3), -1.0))
+    # sentiment = torch.tensor(sentiment, dtype=torch.float32).to(device)
+    init_dates = [
+        date_mem[-1] for date_mem in vec_env.get_attr("date_memory")
+    ]
+    init_sentiments = [
+        sentiment_lookup.get(
+            date,
+            np.full((vec_env.get_attr("stock_dim")[0], 3), -1.0)
+        ).reshape(-1)
+        for date in init_dates
+    ]
+    # print("init_sentiments shape:", np.array(init_sentiments).shape)
+
+    init_sentiments = np.stack(init_sentiments, axis=0)  # shape = (num_envs, 234)
+    sentiments = torch.tensor(init_sentiments, dtype=torch.float32).to(device)
+    sentiments = sentiments[:, None, :]
 
     # we keep all the histories on the device
     # note that the latest action and reward will be "padding"
@@ -138,6 +159,7 @@ def vec_evaluate_episode_rtg(
             target_return.to(dtype=torch.float32),
             timesteps.to(dtype=torch.long),
             num_envs=num_envs,
+            sentiments=sentiments,
         )
         state_pred = state_pred.detach().cpu().numpy().reshape(num_envs, -1)
         reward_pred = reward_pred.detach().cpu().numpy().reshape(num_envs)
@@ -152,9 +174,16 @@ def vec_evaluate_episode_rtg(
         
         if sentiment_lookup is not None:
             current_dates = [pd.to_datetime(env_info["datetime"]).strftime('%Y-%m-%d') for env_info in info]
+            new_sentiments = []
             for i, date in enumerate(current_dates):
                 sentiment = sentiment_lookup.get(date, np.full((vec_env.get_attr("stock_dim")[0], 3), -1.0))
                 collected_sentiments[i].append(sentiment)
+                sentiment = sentiment.reshape(-1)
+                new_sentiments.append(sentiment)
+            new_sentiments = np.stack(new_sentiments, axis=0)  # (B, 234)
+            new_sentiments = torch.tensor(new_sentiments, dtype=torch.float32).to(device)  # (B, D)
+            new_sentiments = new_sentiments[:, None, :]  # (B, 1, D)
+            sentiments = torch.cat([sentiments, new_sentiments], dim=1)  # (B, T+1, D)
 
         # eval_env.step() will execute the action for all the sub-envs, for those where
         # the episodes have terminated, the envs will be reset. Hence we use

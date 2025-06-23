@@ -73,7 +73,9 @@ class SequenceTrainer:
         timesteps = timesteps.to(self.device)
         ordering = ordering.to(self.device)
         padding_mask = padding_mask.to(self.device)
+        sentiments = sentiments.to(self.device)
 
+        # print(sentiments)
         action_target = torch.clone(actions)
 
         _, action_preds, _ = self.model.forward(
@@ -83,6 +85,7 @@ class SequenceTrainer:
             rtg[:, :-1],
             timesteps,
             ordering,
+            sentiments=sentiments,
             padding_mask=padding_mask,
         )
 
